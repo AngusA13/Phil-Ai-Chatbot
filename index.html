@@ -698,7 +698,12 @@
             <div id="philBootStatus">Starting up…</div>
             <div id="philBootModelList">
                 <div class="phil-boot-model" data-model="Phi-3.5-mini-instruct-q4f16_1-MLC"><strong>🚀 Flash</strong><span class="phil-boot-model-status">Waiting</span></div>
+                <div class="phil-boot-model" data-model="phil-image-generator"><strong>🎨 Image generator</strong><span class="phil-boot-model-status">Optional</span></div>
             </div>
+            <label class="phil-image-download-option" style="display:flex;align-items:flex-start;gap:10px;text-align:left;margin-top:14px;padding:12px;border:1px solid #292a31;border-radius:10px;color:#d4d4d8;font-size:12px;line-height:1.5;cursor:pointer;">
+                <input id="philDownloadImageGenerator" type="checkbox" style="margin-top:3px;accent-color:#6366f1;">
+                <span><strong style="display:block;color:#fff;font-size:13px;">Also download the image generator</strong>Optional large download. It may take a while and needs compatible browser support. You can leave this unchecked and download it later by using 🎨.</span>
+            </label>
             <div class="phil-boot-actions" id="philBootActions" hidden>
                 <button id="philBootRetry" type="button">Retry Flash loading</button>
                 <button id="philBootContinue" type="button">Continue when Flash is ready</button>
@@ -965,6 +970,7 @@
         const philBootActions = document.getElementById('philBootActions');
         const philBootRetry = document.getElementById('philBootRetry');
         const philBootContinue = document.getElementById('philBootContinue');
+        const philDownloadImageGenerator = document.getElementById('philDownloadImageGenerator');
 
         // Modals
         const startupModal = document.getElementById('startupModal');
@@ -1078,6 +1084,7 @@
         const IMAGE_MODEL_ID = 'aislamov/stable-diffusion-2-1-base-onnx';
         let imagePipeline = null;
         let imagePipelinePromise = null;
+        let imagePipelineUsesCpuRevision = false;
 
         function isImageRequest(text) {
             const value = String(text || '').toLowerCase().trim();
@@ -1088,7 +1095,7 @@
                 || /^\s*(draw|generate|paint|illustrate)\b/.test(value);
         }
 
-        async function getImagePipeline(onStatus = () => {}) {
+        async function getImagePipeline(onStatus = () => {}, forceCpu = false) {
             if (imagePipeline) return imagePipeline;
             if (imagePipelinePromise) return imagePipelinePromise;
             imagePipelinePromise = (async () => {
@@ -1097,9 +1104,29 @@
                 if (!module || !module.DiffusionPipeline) {
                     throw new Error('The image-generation library did not expose DiffusionPipeline.');
                 }
-                onStatus('Downloading and preparing the image model. This first load may take a while…');
-                const pipe = await module.DiffusionPipeline.fromPretrained(IMAGE_MODEL_ID);
+                // The project's WebGPU ONNX build uses WebAssembly.Function on some paths,
+                // which is not available in every browser/runtime. Try its documented CPU
+                // model revision in that case, and as a fallback after a WebGPU failure.
+                const wasmFunctionAvailable = typeof WebAssembly.Function === 'function';
+                let useCpuRevision = forceCpu || !wasmFunctionAvailable;
+                let pipe;
+                if (!useCpuRevision) {
+                    onStatus('Downloading and preparing the image model. This first load may take a while…');
+                    try {
+                        pipe = await module.DiffusionPipeline.fromPretrained(IMAGE_MODEL_ID);
+                    } catch (gpuLoadError) {
+                        const message = String(gpuLoadError?.message || gpuLoadError || '');
+                        if (!/WebAssembly\.Function|no available backend|webgpu|execution provider/i.test(message)) throw gpuLoadError;
+                        console.warn('Image WebGPU setup failed; trying the CPU-compatible model revision.', gpuLoadError);
+                        useCpuRevision = true;
+                    }
+                }
+                if (useCpuRevision) {
+                    onStatus('Preparing the compatibility image model (CPU mode). This may be slower…');
+                    pipe = await module.DiffusionPipeline.fromPretrained(IMAGE_MODEL_ID, { revision: 'cpu' });
+                }
                 imagePipeline = pipe;
+                imagePipelineUsesCpuRevision = useCpuRevision;
                 return pipe;
             })();
             try {
@@ -1112,6 +1139,7 @@
         async function releaseImagePipeline() {
             const pipe = imagePipeline;
             imagePipeline = null;
+            imagePipelineUsesCpuRevision = false;
             if (!pipe) return;
             // The library has no single documented dispose method across builds, so try
             // supported cleanup methods when present and then drop our reference.
@@ -1147,10 +1175,26 @@
                 });
                 bubbleDiv.textContent = '🎨 Generating your image locally… This can take several minutes.';
                 headerStatus.textContent = 'Generating image…';
-                const generated = await pipe.run({
-                    prompt: cleanPrompt,
-                    numInferenceSteps: 20,
-                });
+                let generated;
+                try {
+                    generated = await pipe.run({
+                        prompt: cleanPrompt,
+                        numInferenceSteps: imagePipelineUsesCpuRevision ? 12 : 20,
+                    });
+                } catch (firstRunError) {
+                    const message = String(firstRunError?.message || firstRunError || '');
+                    const needsCpuFallback = !imagePipelineUsesCpuRevision && /WebAssembly\.Function|no available backend|webgpu|execution provider/i.test(message);
+                    if (!needsCpuFallback) throw firstRunError;
+                    console.warn('Image WebGPU backend failed; retrying with the CPU model revision.', firstRunError);
+                    await releaseImagePipeline();
+                    bubbleDiv.textContent = '🎨 The GPU backend is incompatible here. Trying the CPU-compatible image model…';
+                    statusMessage.textContent = 'Switching image generation to compatibility mode. This can be slower.';
+                    const cpuPipe = await getImagePipeline(message => {
+                        bubbleDiv.textContent = `🎨 ${message}`;
+                        statusMessage.textContent = message;
+                    }, true);
+                    generated = await cpuPipe.run({ prompt: cleanPrompt, numInferenceSteps: 12 });
+                }
                 if (!generated || !generated.length || !generated[0]) {
                     throw new Error('The image model returned no image.');
                 }
@@ -1178,9 +1222,15 @@
                 statusMessage.textContent = 'Image generated. Switching back to Flash…';
             } catch (error) {
                 console.error('Phil image generation error:', error);
-                bubbleDiv.textContent = `Sorry, Phil could not generate that image. ${error?.message || 'The local image model may not be compatible with this browser or GPU.'} Try again, and check that WebGPU is available.`;
+                const imageError = String(error?.message || error || 'Unknown image-generation error');
+                if (/WebAssembly\.Function|no available backend|webgpu|execution provider/i.test(imageError)) {
+                    bubbleDiv.textContent = 'Phil could not start the image engine in this browser. I tried the CPU-compatible model as a fallback, but this version of the image runtime is still incompatible. Flash chat will continue to work. Try updating Edge and its graphics drivers; if it still fails, this image engine needs a different runtime build.';
+                    statusMessage.textContent = 'Image engine runtime incompatible; restoring Flash.';
+                } else {
+                    bubbleDiv.textContent = `Sorry, Phil could not generate that image. ${imageError}`;
+                    statusMessage.textContent = 'Image generation failed. Flash will be restored for normal chat.';
+                }
                 headerStatus.textContent = 'Image generation failed';
-                statusMessage.textContent = 'Image generation failed. Flash will be restored for normal chat.';
             } finally {
                 await releaseImagePipeline();
             }
@@ -1480,6 +1530,45 @@
             }
         }
 
+        async function prepareImageGeneratorAtStartup() {
+            if (!philDownloadImageGenerator.checked) return;
+            const flashWasLoaded = engineCache.has(selectedModelId);
+            try {
+                setBootModelStatus('phil-image-generator', 'Preparing…');
+                philBootStatus.textContent = 'Preparing the optional image generator. This is a large download; please keep this tab open…';
+                philBootEta.textContent = 'Image model download may take several minutes';
+                // Free the Flash engine while the image pipeline is prepared to reduce GPU memory pressure.
+                const flashEngine = engineCache.get(selectedModelId);
+                if (flashEngine && typeof flashEngine.unload === 'function') {
+                    try { await flashEngine.unload(); } catch (error) { console.warn('Could not unload Flash before image model preparation:', error); }
+                }
+                engineCache.delete(selectedModelId);
+                engine = null;
+                const pipe = await getImagePipeline(message => {
+                    philBootStatus.textContent = message;
+                    setBootModelStatus('phil-image-generator', 'Downloading…');
+                });
+                await releaseImagePipeline();
+                setBootModelStatus('phil-image-generator', '✓ Prepared');
+            } catch (error) {
+                console.warn('Optional image generator preparation failed:', error);
+                setBootModelStatus('phil-image-generator', 'Unavailable — try 🎨 later');
+                philBootStatus.textContent = 'Flash is ready. The optional image generator could not be prepared in this browser; you can still use normal chat.';
+            } finally {
+                if (flashWasLoaded && !engineCache.has(selectedModelId)) {
+                    try {
+                        philBootStatus.textContent = 'Reloading Flash…';
+                        await getOrCreateEngine(selectedModelId, progress => {
+                            const percent = Number.isFinite(progress?.progress) ? Math.floor(progress.progress * 100) : 0;
+                            philBootStatus.textContent = `Reloading Flash after image setup… ${percent}%`;
+                        });
+                    } catch (error) {
+                        console.error('Could not reload Flash after image setup:', error);
+                    }
+                }
+            }
+        }
+
         async function preloadFlashModel() {
             if (bootIsRunning) return;
             bootIsRunning = true;
@@ -1528,6 +1617,10 @@
                 philBootProgressBar.style.width = '100%';
                 philBootPercent.textContent = '100%';
                 philBootEta.textContent = 'Complete';
+                philBootStatus.textContent = 'Flash is loaded and ready.';
+                if (philDownloadImageGenerator.checked) {
+                    await prepareImageGeneratorAtStartup();
+                }
                 philBootStatus.textContent = 'Flash is loaded and ready. Opening Phil…';
                 setTimeout(finishPhilBoot, 350);
             } else {
