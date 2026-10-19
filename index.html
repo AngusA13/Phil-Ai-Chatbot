@@ -1,0 +1,2295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phil - AI Assistant & Smart Email Drafter</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <style>
+        :root {
+            --sidebar-bg: #171717;
+            --sidebar-border: #262626;
+            --sidebar-hover: #212121;
+            --chat-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #9ca3af;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bubble-user: #6366f1;
+            --bubble-user-text: #ffffff;
+            --bubble-bot: #f3f4f6;
+            --bubble-bot-text: #1f2937;
+            --border-color: #e5e7eb;
+            --header-bg: #ffffff;
+            --input-bg: #f8fafc;
+        }
+
+        [data-theme="dark"] {
+            --sidebar-bg: #111111;
+            --sidebar-border: #222222;
+            --sidebar-hover: #1f1f1f;
+            --chat-bg: #18181b;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --primary: #818cf8;
+            --primary-hover: #6366f1;
+            --bubble-user: #4f46e5;
+            --bubble-user-text: #ffffff;
+            --bubble-bot: #27272a;
+            --bubble-bot-text: #f4f4f5;
+            --border-color: #27272a;
+            --header-bg: #18181b;
+            --input-bg: #27272a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--chat-bg);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: 280px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            color: white;
+        }
+
+        .new-chat-btn {
+            background: transparent;
+            color: white;
+            border: 1px solid #404040;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            transition: background 0.2s;
+            text-align: left;
+            width: 100%;
+        }
+
+        .new-chat-btn:hover {
+            background-color: var(--sidebar-hover);
+            border-color: #525252;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            font-weight: 600;
+            padding-left: 8px;
+        }
+
+        .chat-history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 auto 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow-y: auto;
+        }
+
+        .chat-history-item {
+            font-size: 0.85rem;
+            color: #d1d5db;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .chat-history-item:hover {
+            background-color: var(--sidebar-hover);
+        }
+
+        .chat-history-item.active {
+            background-color: var(--sidebar-hover);
+            color: white;
+            font-weight: 500;
+        }
+
+        .chat-title-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+
+        .delete-chat-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            visibility: hidden;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .chat-history-item:hover .delete-chat-btn {
+            visibility: visible;
+        }
+
+        .delete-chat-btn:hover {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .sidebar-footer {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--sidebar-border);
+            padding-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sidebar-footer-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-toggle-btn, .export-btn, .persona-select {
+            background: transparent;
+            border: 1px solid var(--sidebar-border);
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            flex: 1;
+        }
+
+        .persona-select {
+            background: var(--sidebar-bg);
+            color: #d1d5db;
+        }
+
+        .theme-toggle-btn:hover, .export-btn:hover {
+            background: var(--sidebar-hover);
+            color: white;
+        }
+
+        /* Typing Indicator 3 Dots Animation */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 2px;
+        }
+
+        .typing-dot {
+            width: 7px;
+            height: 7px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            animation: dotBounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes dotBounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* Main Chat Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--chat-bg);
+            height: 100vh;
+        }
+
+        .chat-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--header-bg);
+        }
+
+        .chat-header h1 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .status-badge {
+            font-size: 0.8rem;
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            scroll-behavior: smooth;
+        }
+
+        .message-row {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.2s ease-out;
+            position: relative;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-row {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .bot-row {
+            align-self: flex-start;
+        }
+
+        .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .user-avatar {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .bot-avatar {
+            background-color: #0ea5e9;
+            color: white;
+        }
+
+        .message-bubble-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-width: 100%;
+        }
+
+        .message-bubble {
+            padding: 12px 18px;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .user-row .message-bubble {
+            background-color: var(--bubble-user);
+            color: var(--bubble-user-text);
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-row .message-bubble {
+            background-color: var(--bubble-bot);
+            color: var(--bubble-bot-text);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .message-bubble pre {
+            margin: 8px 0;
+            border-radius: 8px;
+            padding: 12px;
+            background: #1e1e1e !important;
+            overflow-x: auto;
+        }
+
+        .message-bubble code {
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            align-self: flex-start;
+            padding: 2px 4px;
+            opacity: 0;
+            transition: opacity 0.2s, color 0.2s;
+        }
+
+        .bot-row:hover .copy-btn {
+            opacity: 1;
+        }
+
+        .copy-btn:hover {
+            color: var(--primary);
+        }
+
+        .attached-files-bar {
+            padding: 6px 24px 0 24px;
+            background: var(--header-bg);
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .file-pill {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-main);
+        }
+
+        .file-pill button {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .file-pill button:hover {
+            color: #ef4444;
+        }
+
+        .prompt-chips-container {
+            padding: 0 24px 8px 24px;
+            background: var(--header-bg);
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .prompt-chip {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .prompt-chip:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .chat-input-area {
+            padding: 12px 24px 20px 24px;
+            background: var(--header-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input-area input[type="text"] {
+            flex: 1;
+            padding: 14px 18px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 12px;
+            outline: none;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .chat-input-area input[type="text"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+        }
+
+        .action-icon-btn {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .action-icon-btn:hover {
+            background: var(--sidebar-hover);
+            border-color: var(--primary);
+        }
+
+        .action-icon-btn.recording {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .chat-input-area button.send-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .chat-input-area button.send-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .chat-input-area button:disabled {
+            background-color: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .email-modal {
+            background: var(--header-bg);
+            color: var(--text-main);
+            width: 500px;
+            max-width: 90%;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .email-modal h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .email-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .email-field input, .email-field textarea {
+            padding: 10px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 8px;
+            outline: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .email-field textarea {
+            resize: vertical;
+            height: 120px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .modal-btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+        }
+
+        .cancel-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+        }
+
+        .cancel-btn:hover {
+            background: var(--sidebar-hover);
+        }
+
+        .purpose-option-btn {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .purpose-option-btn:hover, .purpose-option-btn.selected {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .send-mail-btn {
+            background: var(--primary);
+            color: white;
+        }
+
+        .send-mail-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+        }
+
+        /* Full-screen startup loader: keeps the existing Phil interface hidden until models are warmed. */
+        #philBootScreen {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #101114;
+            color: #f9fafb;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #philBootScreen[hidden] { display: none !important; }
+        .phil-boot-card {
+            width: min(520px, 100%);
+            text-align: center;
+        }
+        .phil-boot-mark {
+            width: 68px;
+            height: 68px;
+            display: grid;
+            place-items: center;
+            margin: 0 auto 22px;
+            border-radius: 22px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            box-shadow: 0 12px 45px rgba(99, 102, 241, .28);
+            font-size: 30px;
+            font-weight: 800;
+        }
+        .phil-boot-title { margin: 0; font-size: clamp(25px, 5vw, 34px); letter-spacing: -.04em; }
+        .phil-boot-subtitle { margin: 10px 0 28px; color: #a1a1aa; font-size: 14px; line-height: 1.6; }
+        .phil-boot-track { width: 100%; height: 10px; overflow: hidden; border-radius: 999px; background: #292a31; }
+        #philBootProgressBar { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6366f1, #a78bfa); transition: width .25s ease; }
+        .phil-boot-stats { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; color: #c4c4cc; font-size: 13px; }
+        #philBootPercent { color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; }
+        #philBootStatus { min-height: 38px; margin: 22px 0 8px; color: #e4e4e7; font-size: 14px; line-height: 1.5; }
+        #philBootModelList { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; text-align: left; }
+        .phil-boot-model { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #292a31; border-radius: 10px; color: #a1a1aa; font-size: 12px; }
+        .phil-boot-model strong { color: #e4e4e7; font-weight: 600; }
+        .phil-boot-model-status { white-space: nowrap; }
+        .phil-boot-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+        .phil-boot-actions button { padding: 10px 16px; border: 0; border-radius: 9px; cursor: pointer; font-weight: 600; }
+        #philBootRetry { background: #6366f1; color: #fff; }
+        #philBootContinue { background: #27272a; color: #fff; border: 1px solid #3f3f46; }
+        .phil-boot-note { margin-top: 18px; color: #71717a; font-size: 11px; line-height: 1.5; }
+    </style>
+</head>
+<body data-theme="light">
+
+    <div id="philBootScreen" role="status" aria-live="polite">
+        <div class="phil-boot-card">
+            <div class="phil-boot-mark">P</div>
+            <h1 class="phil-boot-title">Loading Phil AI</h1>
+            <p class="phil-boot-subtitle">Loading the Flash model. Keep this tab open until Phil is ready.</p>
+            <div class="phil-boot-track" aria-label="Loading progress"><div id="philBootProgressBar"></div></div>
+            <div class="phil-boot-stats"><span id="philBootPercent">0%</span><span id="philBootEta">Estimating time remaining…</span></div>
+            <div id="philBootStatus">Starting up…</div>
+            <div id="philBootModelList">
+                <div class="phil-boot-model" data-model="Phi-3.5-mini-instruct-q4f16_1-MLC"><strong>🚀 Flash</strong><span class="phil-boot-model-status">Waiting</span></div>
+            </div>
+            <div class="phil-boot-actions" id="philBootActions" hidden>
+                <button id="philBootRetry" type="button">Retry Flash loading</button>
+                <button id="philBootContinue" type="button">Continue when Flash is ready</button>
+            </div>
+            <div class="phil-boot-note">The first startup downloads and initializes model files. Your browser may reuse the downloaded Flash model files on future visits, but Flash still needs to be initialized in memory.</div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="startupModal">
+        <div class="email-modal" style="width: 540px; gap: 16px;">
+            <div style="text-align: center;">
+                <h2>✨ Welcome to Phil AI</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">
+                    What are you using Phil AI for? This helps tailor Phil's responses!
+                </p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button class="purpose-option-btn selected" data-purpose="school">
+                    <span style="font-weight: 600; font-size: 0.9rem;">📚 School & Studying</span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Homework, lessons, tutoring</span>
+                </button>
+                <button class="purpose-option-btn" data-purpose="research">
+                    <span style="font-weight: 600; font-size: 0.9rem;">🔬 Research & Facts</span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Deep dives, learning new topics</span>
+                </button>
+                <button class="purpose-option-btn" data-purpose="fun">
+                    <span style="font-weight: 600; font-size: 0.9rem;">🎉 Just for Fun</span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Stories, games, casual chat</span>
+                </button>
+                <button class="purpose-option-btn" data-purpose="coding">
+                    <span style="font-weight: 600; font-size: 0.9rem;">💻 Coding & Projects</span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Writing code, debugging</span>
+                </button>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 2px 0;">
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 0.85rem; font-weight: 600; text-align: center;">How would you like to load the AI model?</span>
+                <div style="display: flex; gap: 10px;">
+                    <button class="modal-btn send-mail-btn" id="startOnlineBtn" style="flex: 1; padding: 12px;">🌐 Start Online Mode (Recommended)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="voiceModal" style="background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(12px);">
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: white; text-align: center; width: 100%; height: 100%; padding: 20px;">
+            <div id="voiceStatus" style="font-size: 1.25rem; font-weight: 600; color: #a5b4fc;">Starting Voice Mode...</div>
+            <div id="voiceOrb" style="width: 120px; height: 120px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 3rem; box-shadow: 0 0 40px rgba(99, 102, 241, 0.6); animation: pulse 2s infinite; cursor: pointer;" title="Click to toggle listening">🎙️</div>
+            <div id="voiceTranscript" style="font-size: 1.05rem; max-width: 500px; color: #e5e7eb; min-height: 50px; line-height: 1.5;">Say something to Phil...</div>
+            <button class="modal-btn cancel-btn" id="closeVoiceMode" style="color: white; border-color: #4b5563; margin-top: 10px; padding: 12px 24px;">Exit Voice Mode ✕</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="personaModal">
+        <div class="email-modal">
+            <h2>✨ Create Custom Persona</h2>
+            <div class="email-field">
+                <label>Persona Name:</label>
+                <input type="text" id="customPersonaName" placeholder="e.g. Sarcastic Pirate / Code Architect">
+            </div>
+            <div class="email-field">
+                <label>System Prompt Instruction:</label>
+                <textarea id="customPersonaPrompt" placeholder="You are Phil, acting as... Give strict behavior instructions here."></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel-btn" id="cancelPersonaBtn">Cancel</button>
+                <button class="modal-btn send-mail-btn" id="savePersonaBtn">Save Persona 💾</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal">
+        <div class="email-modal" style="gap: 16px;">
+            <h2>⚙️ Phil Settings & Preferences</h2>
+            <div style="display: flex; flex-direction: column; gap: 12px; max-height: 65vh; overflow-y: auto; padding-right: 4px;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div style="font-weight: 600; font-size: 0.9rem;">Phil Primary Use Case / Purpose</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Changes Phil's default focus and conversation style</div>
+                    <select id="settingsPurposeSelect" class="persona-select" style="width: 100%; padding: 8px; border-radius: 8px;">
+                        <option value="school">📚 School Work & Studying</option>
+                        <option value="research">🔬 Research & Fact-finding</option>
+                        <option value="fun">🎉 Just for Fun & Creative Writing</option>
+                        <option value="coding">💻 Coding & Tech Projects</option>
+                    </select>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 0;">
+
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.9rem;">Download Model Offline</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Cache model weights in browser storage for offline use</div>
+                    </div>
+                    <button class="modal-btn send-mail-btn" id="downloadModelBtn">Download</button>
+                </div>
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.9rem;">Delete Offline Model Cache</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Free up local storage by removing saved model weights</div>
+                    </div>
+                    <button class="modal-btn" id="deleteCacheBtn" style="background: #ef4444; color: white;">Delete Cache</button>
+                </div>
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.9rem;">Reset Startup Mode Choice</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Re-prompts setup modal on next reload</div>
+                    </div>
+                    <button class="modal-btn cancel-btn" id="resetSetupBtn">Reset</button>
+                </div>
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.9rem;">Clear All Chat History</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Deletes all saved local conversation history</div>
+                    </div>
+                    <button class="modal-btn" id="clearAllChatsBtn" style="background: #ef4444; color: white;">Clear All</button>
+                </div>
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 0;">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 6px;">Manage Custom Personas</div>
+                    <div id="settingsCustomPersonasContainer" style="max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">No custom personas created yet.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons" style="margin-top: 6px;">
+                <button class="modal-btn send-mail-btn" id="closeSettingsBtn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <button class="new-chat-btn" id="newChatBtn">
+            <span>+</span> New Chat
+        </button>
+
+        <div class="sidebar-section-title">Voice Assistant</div>
+        <div class="sidebar-footer-row" style="margin-bottom: 15px;">
+            <button class="theme-toggle-btn" id="voiceModeOpenBtn" style="background: var(--primary); color: white; border-color: var(--primary); padding: 10px; font-weight: 600;">🎙️ Launch Voice Mode</button>
+        </div>
+        
+        <div class="sidebar-section-title">AI Model Mode</div>
+        <div class="sidebar-footer-row" style="margin-bottom: 15px;">
+            <select id="modelSelect" class="persona-select" title="AI Model">
+                <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">🚀 Flash</option>
+            </select>
+        </div>
+
+        <div class="sidebar-section-title">Persona</div>
+        <div class="sidebar-footer-row" style="margin-bottom: 15px;">
+            <select id="personaSelect" class="persona-select" title="Select AI Persona">
+                <option value="formal">🎓 Formal Academic Tutor</option>
+                <option value="buddy">🤝 Casual Study Buddy</option>
+                <option value="concise">⚡ Concise & Direct</option>
+                <option value="custom_builder" style="color: var(--primary);">➕ Create Custom Persona...</option>
+            </select>
+        </div>
+
+        <div class="sidebar-section-title">Recent Chats</div>
+        <ul class="chat-history-list" id="chatHistoryList"></ul>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-footer-row">
+                <button class="theme-toggle-btn" id="themeToggleBtn">🌙 Dark</button>
+                <button class="export-btn" id="exportChatBtn">📥 Export</button>
+                <button class="theme-toggle-btn" id="settingsOpenBtn">⚙️ Settings</button>
+            </div>
+            <span style="font-size: 0.7rem; color: var(--text-muted);">Developed by Angus • 100% Offline WebGPU</span>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="chat-header">
+            <h1 id="currentChatTitle">Phil - New Conversation</h1>
+            <div class="status-badge" id="headerStatus">Waiting for choice...</div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message-row bot-row">
+                <div class="avatar bot-avatar">P</div>
+                <div class="message-bubble-wrapper">
+                    <div class="message-bubble" id="statusMessage">Please choose your preferred setup mode from the startup prompt to begin.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="attached-files-bar" id="attachedFilesBar"></div>
+
+        <div class="prompt-chips-container">
+            <button class="prompt-chip" data-prompt="Draft an email to my teacher requesting an extension on my assignment.">📝 Extension Request</button>
+            <button class="prompt-chip" data-prompt="Explain this concept in simple layman's terms.">💡 Explain a Topic</button>
+            <button class="prompt-chip" data-prompt="Write a Python script to solve a math problem and explain how it works.">🐍 Write Code</button>
+            <button class="prompt-chip" data-prompt="Summarize my study notes and create clear bullet points.">⚡ Summarize Notes</button>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="file" id="fileInput" style="display: none;" multiple accept=".txt,.md,.js,.py,.html,.css,.json">
+            <button class="action-icon-btn" id="attachBtn" title="Attach Document (txt, md, code)" disabled>📎</button>
+            <button class="action-icon-btn" id="imageGenBtn" title="Generate an image locally" disabled>🎨</button>
+            <input type="text" id="userInput" placeholder="Ask Phil, request code, or generate an image..." autocomplete="off" disabled>
+            <button class="action-icon-btn" id="micBtn" title="Voice Dictation" disabled>🎤</button>
+            <button class="send-btn" id="sendButton" disabled>Send</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="emailModal">
+        <div class="email-modal">
+            <h2>✉️ Phil's Email Review Draft</h2>
+            <div class="email-field">
+                <label>To:</label>
+                <input type="text" id="modalRecipient" readonly>
+            </div>
+            <div class="email-field">
+                <label>Subject:</label>
+                <input type="text" id="modalSubject" placeholder="Enter subject...">
+            </div>
+            <div class="email-field">
+                <label>Message Body:</label>
+                <textarea id="modalBody" placeholder="Type your email content here..."></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel-btn" id="cancelEmailBtn">Cancel</button>
+                <button class="modal-btn send-mail-btn" id="confirmSendEmailBtn">Open in Email App 🚀</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+
+    <script type="module">
+        import { CreateMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
+
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const micBtn = document.getElementById('micBtn');
+        const attachBtn = document.getElementById('attachBtn');
+        const imageGenBtn = document.getElementById('imageGenBtn');
+        const fileInput = document.getElementById('fileInput');
+        const attachedFilesBar = document.getElementById('attachedFilesBar');
+        const statusMessage = document.getElementById('statusMessage');
+        const headerStatus = document.getElementById('headerStatus');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const chatHistoryList = document.getElementById('chatHistoryList');
+        const currentChatTitle = document.getElementById('currentChatTitle');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const exportChatBtn = document.getElementById('exportChatBtn');
+        const personaSelect = document.getElementById('personaSelect');
+        const modelSelect = document.getElementById('modelSelect');
+        const promptChips = document.querySelectorAll('.prompt-chip');
+        const philBootScreen = document.getElementById('philBootScreen');
+        const philBootProgressBar = document.getElementById('philBootProgressBar');
+        const philBootPercent = document.getElementById('philBootPercent');
+        const philBootEta = document.getElementById('philBootEta');
+        const philBootStatus = document.getElementById('philBootStatus');
+        const philBootActions = document.getElementById('philBootActions');
+        const philBootRetry = document.getElementById('philBootRetry');
+        const philBootContinue = document.getElementById('philBootContinue');
+
+        // Modals
+        const startupModal = document.getElementById('startupModal');
+        const startOnlineBtn = document.getElementById('startOnlineBtn');
+        const purposeOptionBtns = document.querySelectorAll('.purpose-option-btn');
+        const settingsPurposeSelect = document.getElementById('settingsPurposeSelect');
+        
+        const personaModal = document.getElementById('personaModal');
+        const customPersonaName = document.getElementById('customPersonaName');
+        const customPersonaPrompt = document.getElementById('customPersonaPrompt');
+        const cancelPersonaBtn = document.getElementById('cancelPersonaBtn');
+        const savePersonaBtn = document.getElementById('savePersonaBtn');
+
+        const settingsModal = document.getElementById('settingsModal');
+        const settingsOpenBtn = document.getElementById('settingsOpenBtn');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        const resetSetupBtn = document.getElementById('resetSetupBtn');
+        const clearAllChatsBtn = document.getElementById('clearAllChatsBtn');
+        const downloadModelBtn = document.getElementById('downloadModelBtn');
+        const deleteCacheBtn = document.getElementById('deleteCacheBtn');
+        const settingsCustomPersonasContainer = document.getElementById('settingsCustomPersonasContainer');
+
+        const emailModal = document.getElementById('emailModal');
+        const modalRecipient = document.getElementById('modalRecipient');
+        const modalSubject = document.getElementById('modalSubject');
+        const modalBody = document.getElementById('modalBody');
+        const cancelEmailBtn = document.getElementById('cancelEmailBtn');
+        const confirmSendEmailBtn = document.getElementById('confirmSendEmailBtn');
+
+        // Voice Assistant Elements
+        const voiceModal = document.getElementById('voiceModal');
+        const voiceModeOpenBtn = document.getElementById('voiceModeOpenBtn');
+        const closeVoiceMode = document.getElementById('closeVoiceMode');
+        const voiceStatus = document.getElementById('voiceStatus');
+        const voiceTranscript = document.getElementById('voiceTranscript');
+        const voiceOrb = document.getElementById('voiceOrb');
+
+        let engine;
+        // Phil AI uses Flash only to avoid loading multiple models and exhausting browser GPU memory.
+        const selectedModelId = "Phi-3.5-mini-instruct-q4f16_1-MLC";
+        let selectedModel = selectedModelId;
+        localStorage.setItem('phil_chat_model', selectedModelId);
+        modelSelect.value = selectedModelId;
+
+        // Keep each successfully initialized engine in memory so model switching is immediate.
+        // Loading every model at startup can require substantial GPU memory.
+        const engineCache = new Map();
+        const engineLoads = new Map();
+
+        async function getOrCreateEngine(modelId, progressCallback = () => {}) {
+            if (engineCache.has(modelId)) {
+                const cached = engineCache.get(modelId);
+                // Refresh insertion order for basic least-recently-used tracking.
+                engineCache.delete(modelId);
+                engineCache.set(modelId, cached);
+                return cached;
+            }
+            if (engineLoads.has(modelId)) return engineLoads.get(modelId);
+
+            const loadPromise = (async () => {
+                const created = await CreateMLCEngine(modelId, {
+                    initProgressCallback: progress => progressCallback(progress)
+                });
+                engineCache.set(modelId, created);
+                return created;
+            })();
+
+            engineLoads.set(modelId, loadPromise);
+            try {
+                return await loadPromise;
+            } finally {
+                engineLoads.delete(modelId);
+            }
+        }
+
+        // Coding model is loaded only for coding requests, so Flash remains the everyday model.
+        const CODING_MODEL_ID = "Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC";
+        let isCodingModelActive = false;
+
+        async function loadModelExclusive(modelId, progressCallback = () => {}) {
+            // Release any current model first to reduce WebGPU memory pressure.
+            for (const [cachedId, cachedEngine] of engineCache.entries()) {
+                try {
+                    if (cachedEngine && typeof cachedEngine.unload === 'function') {
+                        await cachedEngine.unload();
+                    }
+                } catch (error) {
+                    console.warn(`Could not cleanly unload ${cachedId}:`, error);
+                }
+            }
+            engineCache.clear();
+            engineLoads.clear();
+            engine = null;
+            return await CreateMLCEngine(modelId, {
+                initProgressCallback: progress => progressCallback(progress)
+            });
+        }
+
+        function isCodingRequest(text) {
+            const value = String(text || '').toLowerCase();
+            if (/\b(no code|without code|explain the code|what is coding|what does .* code mean)\b/.test(value)) return false;
+            const explicitCoding = /\b(code|coding|programming|debug(?:ging)?|refactor|implement|html|css|javascript|typescript|python|java|c\+\+|c#|sql|source code|script|website|web app|app code|function|class|api endpoint|bug fix)\b/.test(value);
+            const buildableTarget = /\b(write|create|build|make|develop|fix|rewrite)\b.{0,60}\b(app|website|webpage|game|program|script|function|calculator|counter|tool|bot|page|project|code)\b/.test(value);
+            return explicitCoding || buildableTarget;
+        }
+
+        // Image generation uses a separate local browser diffusion pipeline. It is loaded
+        // only for image requests so it does not compete with Flash during ordinary chat.
+        // This browser implementation currently uses the supported SD 2.1 ONNX pipeline;
+        // it is not SD-Turbo, and the first use downloads model files from the model host.
+        const IMAGE_MODEL_ID = 'aislamov/stable-diffusion-2-1-base-onnx';
+        let imagePipeline = null;
+        let imagePipelinePromise = null;
+
+        function isImageRequest(text) {
+            const value = String(text || '').toLowerCase().trim();
+            if (!value) return false;
+            if (/\b(how do i|how to|explain|what is|what are|why does)\b/.test(value) && !/\b(generate|draw|create|make|paint)\b.{0,30}\b(image|picture|art|illustration)\b/.test(value)) return false;
+            return /\b(generate|draw|create|make|paint|illustrate|render)\b.{0,80}\b(image|picture|artwork|art|illustration|wallpaper|logo|portrait|landscape)\b/.test(value)
+                || /\b(image|picture|artwork|illustration|wallpaper)\b.{0,50}\b(of|showing|with)\b/.test(value)
+                || /^\s*(draw|generate|paint|illustrate)\b/.test(value);
+        }
+
+        async function getImagePipeline(onStatus = () => {}) {
+            if (imagePipeline) return imagePipeline;
+            if (imagePipelinePromise) return imagePipelinePromise;
+            imagePipelinePromise = (async () => {
+                onStatus('Loading the local image-generation library…');
+                const module = await import('https://esm.sh/@aislamov/diffusers.js@0.9.3?bundle');
+                if (!module || !module.DiffusionPipeline) {
+                    throw new Error('The image-generation library did not expose DiffusionPipeline.');
+                }
+                onStatus('Downloading and preparing the image model. This first load may take a while…');
+                const pipe = await module.DiffusionPipeline.fromPretrained(IMAGE_MODEL_ID);
+                imagePipeline = pipe;
+                return pipe;
+            })();
+            try {
+                return await imagePipelinePromise;
+            } finally {
+                imagePipelinePromise = null;
+            }
+        }
+
+        async function releaseImagePipeline() {
+            const pipe = imagePipeline;
+            imagePipeline = null;
+            if (!pipe) return;
+            // The library has no single documented dispose method across builds, so try
+            // supported cleanup methods when present and then drop our reference.
+            for (const method of ['dispose', 'destroy', 'close']) {
+                try {
+                    if (typeof pipe[method] === 'function') {
+                        await pipe[method]();
+                        break;
+                    }
+                } catch (error) {
+                    console.warn(`Image pipeline ${method} cleanup failed:`, error);
+                }
+            }
+        }
+
+        async function generateImageRequest(prompt, session, bubbleDiv) {
+            const cleanPrompt = String(prompt || '')
+                .replace(/^\s*(please\s+)?(generate|draw|create|make|paint|illustrate|render)\s+(me\s+)?(an?\s+)?(image|picture|artwork|art|illustration|wallpaper|logo|portrait|landscape)?\s*(of\s+)?/i, '')
+                .trim() || prompt;
+            headerStatus.textContent = 'Loading image model…';
+            statusMessage.textContent = 'Phil is preparing the local image model. This may take a while on first use.';
+            bubbleDiv.textContent = '🎨 Preparing the local image generator…';
+            userInput.disabled = true;
+            sendButton.disabled = true;
+            micBtn.disabled = true;
+            attachBtn.disabled = true;
+            imageGenBtn.disabled = true;
+
+            try {
+                const pipe = await getImagePipeline(message => {
+                    bubbleDiv.textContent = `🎨 ${message}`;
+                    statusMessage.textContent = message;
+                });
+                bubbleDiv.textContent = '🎨 Generating your image locally… This can take several minutes.';
+                headerStatus.textContent = 'Generating image…';
+                const generated = await pipe.run({
+                    prompt: cleanPrompt,
+                    numInferenceSteps: 20,
+                });
+                if (!generated || !generated.length || !generated[0]) {
+                    throw new Error('The image model returned no image.');
+                }
+                const imageData = await generated[0].toImageData({ tensorLayout: 'NCWH', format: 'RGB' });
+                const canvas = document.createElement('canvas');
+                canvas.width = imageData.width || 512;
+                canvas.height = imageData.height || 512;
+                const context = canvas.getContext('2d');
+                context.putImageData(imageData, 0, 0);
+                // WebP reduces the chance that saved images fill localStorage quickly.
+                const dataUrl = canvas.toDataURL('image/webp', 0.84);
+                const storedMessage = `[[PHIL_IMAGE_DATA:${dataUrl}]]`;
+                bubbleDiv.textContent = '';
+                renderStoredImage(storedMessage, bubbleDiv);
+                if (session) {
+                    session.history.push({ role: 'assistant', content: storedMessage });
+                    try {
+                        saveSessionsToStorage();
+                    } catch (storageError) {
+                        console.warn('Generated image could not be saved to browser storage:', storageError);
+                        statusMessage.textContent = 'Image generated, but browser storage was full; it may not remain in chat history after refresh.';
+                    }
+                }
+                headerStatus.textContent = 'Image ready';
+                statusMessage.textContent = 'Image generated. Switching back to Flash…';
+            } catch (error) {
+                console.error('Phil image generation error:', error);
+                bubbleDiv.textContent = `Sorry, Phil could not generate that image. ${error?.message || 'The local image model may not be compatible with this browser or GPU.'} Try again, and check that WebGPU is available.`;
+                headerStatus.textContent = 'Image generation failed';
+                statusMessage.textContent = 'Image generation failed. Flash will be restored for normal chat.';
+            } finally {
+                await releaseImagePipeline();
+            }
+        }
+
+        function renderStoredImage(storedMessage, containerElement) {
+            const match = String(storedMessage || '').match(/^\[\[PHIL_IMAGE_DATA:(data:image\/(?:webp|png|jpeg);base64,[A-Za-z0-9+/=]+)\]\]$/);
+            if (!match) {
+                containerElement.textContent = storedMessage;
+                return;
+            }
+            containerElement.replaceChildren();
+            const image = document.createElement('img');
+            image.src = match[1];
+            image.alt = 'Image generated by Phil AI';
+            image.loading = 'lazy';
+            image.style.cssText = 'display:block;max-width:min(100%,512px);height:auto;border-radius:12px;margin:6px 0;';
+            const download = document.createElement('a');
+            download.href = match[1];
+            download.download = `phil-ai-image-${Date.now()}.webp`;
+            download.textContent = '⬇️ Download image';
+            download.style.cssText = 'display:inline-block;margin-top:8px;color:var(--primary);font-weight:600;text-decoration:none;';
+            containerElement.append(image, download);
+        }
+
+        
+        let sessions = JSON.parse(localStorage.getItem('phil_chat_sessions')) || [];
+        let currentSessionId = null;
+        let attachedDocuments = [];
+        let isVoiceModeActive = false;
+        let speechRecognitionInstance = null;
+
+        let currentPurpose = localStorage.getItem('phil_purpose') || 'school';
+        settingsPurposeSelect.value = currentPurpose;
+
+        purposeOptionBtns.forEach(btn => {
+            if (btn.getAttribute('data-purpose') === currentPurpose) {
+                btn.classList.add('selected');
+            } else {
+                btn.classList.remove('selected');
+            }
+            btn.addEventListener('click', () => {
+                purposeOptionBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                currentPurpose = btn.getAttribute('data-purpose');
+                localStorage.setItem('phil_purpose', currentPurpose);
+                settingsPurposeSelect.value = currentPurpose;
+            });
+        });
+
+        settingsPurposeSelect.addEventListener('change', (e) => {
+            currentPurpose = e.target.value;
+            localStorage.setItem('phil_purpose', currentPurpose);
+            purposeOptionBtns.forEach(b => {
+                if (b.getAttribute('data-purpose') === currentPurpose) {
+                    b.classList.add('selected');
+                } else {
+                    b.classList.remove('selected');
+                }
+            });
+        });
+
+        const savedTheme = localStorage.getItem('phil_chat_theme') || 'light';
+        document.body.setAttribute('data-theme', savedTheme);
+        themeToggleBtn.textContent = savedTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('phil_chat_theme', newTheme);
+            themeToggleBtn.textContent = newTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+        });
+
+        let customPersonas = JSON.parse(localStorage.getItem('phil_custom_personas')) || {};
+        
+        function updatePersonaDropdown() {
+            while (personaSelect.options.length > 3) {
+                personaSelect.remove(3);
+            }
+            for (const [key, value] of Object.entries(customPersonas)) {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = `🛠️ ${value.name}`;
+                personaSelect.insertBefore(opt, personaSelect.lastElementChild);
+            }
+            renderSettingsPersonas();
+        }
+
+        function renderSettingsPersonas() {
+            settingsCustomPersonasContainer.innerHTML = '';
+            const keys = Object.keys(customPersonas);
+            if (keys.length === 0) {
+                settingsCustomPersonasContainer.innerHTML = '<span style="font-size: 0.8rem; color: var(--text-muted);">No custom personas created yet.</span>';
+                return;
+            }
+            keys.forEach(key => {
+                const p = customPersonas[key];
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.justifyContent = 'space-between';
+                row.style.alignItems = 'center';
+                row.style.background = 'var(--input-bg)';
+                row.style.padding = '6px 10px';
+                row.style.borderRadius = '6px';
+                row.style.fontSize = '0.85rem';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = p.name;
+                nameSpan.style.fontWeight = '500';
+
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '🗑️';
+                delBtn.style.background = 'none';
+                delBtn.style.border = 'none';
+                delBtn.style.cursor = 'pointer';
+                delBtn.title = 'Delete persona';
+                delBtn.addEventListener('click', () => {
+                    delete customPersonas[key];
+                    localStorage.setItem('phil_custom_personas', JSON.stringify(customPersonas));
+                    if (currentPersona === key) {
+                        currentPersona = 'formal';
+                        localStorage.setItem('phil_chat_persona', 'formal');
+                        personaSelect.value = 'formal';
+                    }
+                    updatePersonaDropdown();
+                });
+
+                row.appendChild(nameSpan);
+                row.appendChild(delBtn);
+                settingsCustomPersonasContainer.appendChild(row);
+            });
+        }
+        updatePersonaDropdown();
+
+        let currentPersona = localStorage.getItem('phil_chat_persona') || 'formal';
+        if (personaSelect.querySelector(`option[value="${currentPersona}"]`)) {
+            personaSelect.value = currentPersona;
+        }
+
+        personaSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom_builder') {
+                personaModal.classList.add('active');
+                personaSelect.value = currentPersona;
+                return;
+            }
+            currentPersona = e.target.value;
+            localStorage.setItem('phil_chat_persona', currentPersona);
+        });
+
+        cancelPersonaBtn.addEventListener('click', () => {
+            personaModal.classList.remove('active');
+        });
+
+        savePersonaBtn.addEventListener('click', () => {
+            const name = customPersonaName.value.trim();
+            const prompt = customPersonaPrompt.value.trim();
+            if (!name || !prompt) {
+                alert("Please fill in both name and system prompt instructions.");
+                return;
+            }
+            const key = 'custom_' + Date.now();
+            customPersonas[key] = { name, prompt };
+            localStorage.setItem('phil_custom_personas', JSON.stringify(customPersonas));
+            
+            updatePersonaDropdown();
+            personaSelect.value = key;
+            currentPersona = key;
+            localStorage.setItem('phil_chat_persona', currentPersona);
+
+            customPersonaName.value = '';
+            customPersonaPrompt.value = '';
+            personaModal.classList.remove('active');
+        });
+
+        settingsOpenBtn.addEventListener('click', () => {
+            renderSettingsPersonas();
+            settingsModal.classList.add('active');
+        });
+
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.remove('active');
+        });
+
+        resetSetupBtn.addEventListener('click', () => {
+            if (confirm("Are you sure you want to reset your startup mode preference?")) {
+                localStorage.removeItem('phil_setup_mode');
+                localStorage.removeItem('phil_purpose');
+                alert("Startup preferences reset successfully!");
+                settingsModal.classList.remove('active');
+            }
+        });
+
+        clearAllChatsBtn.addEventListener('click', () => {
+            if (confirm("Are you sure you want to delete all saved conversations?")) {
+                sessions = [];
+                localStorage.removeItem('phil_chat_sessions');
+                createNewSession();
+                settingsModal.classList.remove('active');
+            }
+        });
+
+        downloadModelBtn.addEventListener('click', async () => {
+            downloadModelBtn.textContent = "Loading...";
+            downloadModelBtn.disabled = true;
+            try {
+                await getOrCreateEngine(selectedModel, progress => {
+                    headerStatus.textContent = progress.text;
+                });
+                headerStatus.textContent = "Model ready";
+                alert("Model loaded and its files can be reused from the browser cache. It is now warm for faster switching.");
+            } catch (err) {
+                console.error(err);
+                alert("Failed to load the model. Check WebGPU support and available GPU memory.");
+            } finally {
+                downloadModelBtn.textContent = "Download";
+                downloadModelBtn.disabled = false;
+            }
+        });
+
+        deleteCacheBtn.addEventListener('click', async () => {
+            if (confirm("Clear offline model cache from browser storage?")) {
+                try {
+                    const cacheNames = await caches.keys();
+                    for (const name of cacheNames) {
+                        if (name.includes("webllm") || name.includes("mlc") || name.includes("transformers")) {
+                            await caches.delete(name);
+                        }
+                    }
+                    alert("Cache successfully cleared!");
+                } catch (err) {
+                    alert("Could not clear cache automatically.");
+                }
+            }
+        });
+
+        function getSystemPrompt() {
+            let purposePrompt = "";
+            const purpose = localStorage.getItem('phil_purpose') || 'school';
+            if (purpose === 'fun') {
+                purposePrompt = " You love having fun, creative conversations, telling stories, and keeping things lighthearted.";
+            } else if (purpose === 'research') {
+                purposePrompt = " You focus on deep research, precise facts, detailed analysis, and clear explanations.";
+            } else if (purpose === 'coding') {
+                purposePrompt = " You are an expert programmer and technical assistant who loves writing clean code.";
+            } else {
+                purposePrompt = " You are focused on helping with school work, homework assignments, studying, and academic success.";
+            }
+
+            let personaBase = "";
+            if (customPersonas[currentPersona]) {
+                personaBase = customPersonas[currentPersona].prompt;
+            } else if (currentPersona === 'buddy') {
+                personaBase = "You are Phil, a friendly, casual study and chat buddy.";
+            } else if (currentPersona === 'concise') {
+                personaBase = "You are Phil, a direct, concise assistant with zero fluff. Keep responses brief for voice conversation.";
+            } else {
+                personaBase = "You are Phil, a polite and helpful assistant.";
+            }
+
+            let creatorInstruction = " If anyone asks who made you, created you, or developed you, always explicitly state that Angus put you together and developed you.";
+
+            return personaBase + purposePrompt + creatorInstruction;
+        }
+
+        const modelDefinitions = [
+            { id: "Phi-3.5-mini-instruct-q4f16_1-MLC", label: "Flash", weight: 1 }
+        ];
+        let bootStartedAt = 0;
+        let bootFailedModels = [];
+        let bootIsRunning = false;
+
+        function formatBootTime(seconds) {
+            if (!Number.isFinite(seconds) || seconds < 0) return "Estimating time remaining…";
+            const total = Math.ceil(seconds);
+            const minutes = Math.floor(total / 60);
+            const remainingSeconds = total % 60;
+            return minutes > 0 ? `About ${minutes}m ${remainingSeconds}s remaining` : `About ${remainingSeconds}s remaining`;
+        }
+
+        function setBootModelStatus(modelId, status) {
+            const row = document.querySelector(`#philBootModelList [data-model="${modelId}"]`);
+            if (row) row.querySelector('.phil-boot-model-status').textContent = status;
+        }
+
+        function updateBootProgress(progressValue, statusText) {
+            const clamped = Math.max(0, Math.min(0.999, progressValue));
+            const percent = Math.floor(clamped * 100);
+            philBootProgressBar.style.width = `${percent}%`;
+            philBootPercent.textContent = `${percent}%`;
+            if (statusText) philBootStatus.textContent = statusText;
+            const elapsed = (Date.now() - bootStartedAt) / 1000;
+            if (clamped > 0.015 && elapsed > 1) {
+                philBootEta.textContent = formatBootTime(elapsed * (1 - clamped) / clamped);
+            } else {
+                philBootEta.textContent = "Estimating time remaining…";
+            }
+        }
+
+        async function preloadFlashModel() {
+            if (bootIsRunning) return;
+            bootIsRunning = true;
+            bootFailedModels = [];
+            philBootActions.hidden = true;
+            philBootRetry.disabled = true;
+            philBootContinue.disabled = true;
+            philBootRetry.textContent = 'Retry Flash loading';
+            bootStartedAt = Date.now();
+
+            const totalWeight = modelDefinitions.reduce((sum, item) => sum + item.weight, 0);
+            let completedWeight = modelDefinitions.reduce((sum, item) => sum + (engineCache.has(item.id) ? item.weight : 0), 0);
+            const totalAlreadyLoaded = completedWeight;
+            updateBootProgress(completedWeight / totalWeight, 'Checking models already loaded in this session…');
+
+            for (const model of modelDefinitions) {
+                if (engineCache.has(model.id)) {
+                    setBootModelStatus(model.id, '✓ Ready');
+                    continue;
+                }
+                setBootModelStatus(model.id, 'Loading…');
+                const baseProgress = completedWeight / totalWeight;
+                updateBootProgress(baseProgress, `Loading ${model.label}…`);
+                try {
+                    await getOrCreateEngine(model.id, progress => {
+                        const individualProgress = Number.isFinite(progress?.progress) ? Math.max(0, Math.min(1, progress.progress)) : 0;
+                        const overall = (completedWeight + model.weight * individualProgress) / totalWeight;
+                        const detail = progress?.text ? `${model.label}: ${progress.text}` : `Loading ${model.label}…`;
+                        updateBootProgress(overall, detail);
+                        setBootModelStatus(model.id, individualProgress >= 1 ? 'Finishing…' : `${Math.floor(individualProgress * 100)}%`);
+                    });
+                    completedWeight += model.weight;
+                    setBootModelStatus(model.id, '✓ Ready');
+                    updateBootProgress(completedWeight / totalWeight, `${model.label} is ready.`);
+                } catch (error) {
+                    console.error(`Failed to preload ${model.id}:`, error);
+                    bootFailedModels.push(model);
+                    setBootModelStatus(model.id, 'Failed — retry available');
+                    philBootStatus.textContent = `Could not load ${model.label}. Flash could not be initialized. Your browser may not support WebGPU or may not have enough available GPU memory.`;
+                }
+            }
+
+            bootIsRunning = false;
+            const loadedCount = modelDefinitions.length - bootFailedModels.length;
+            if (bootFailedModels.length === 0) {
+                philBootProgressBar.style.width = '100%';
+                philBootPercent.textContent = '100%';
+                philBootEta.textContent = 'Complete';
+                philBootStatus.textContent = 'Flash is loaded and ready. Opening Phil…';
+                setTimeout(finishPhilBoot, 350);
+            } else {
+                const actualLoaded = modelDefinitions.filter(item => engineCache.has(item.id));
+                const actualWeight = actualLoaded.reduce((sum, item) => sum + item.weight, 0);
+                updateBootProgress(actualWeight / totalWeight, `${loadedCount} of ${modelDefinitions.length} models loaded. Flash could not be initialized.`);
+                philBootActions.hidden = false;
+                philBootRetry.disabled = false;
+                philBootContinue.disabled = actualLoaded.length === 0;
+                philBootEta.textContent = 'Waiting for retry or continue';
+            }
+        }
+
+        function finishPhilBoot() {
+            if (bootIsRunning) return;
+            if (!engineCache.size) {
+                philBootStatus.textContent = 'No models are loaded yet. Retry loading before continuing.';
+                philBootActions.hidden = false;
+                philBootRetry.disabled = false;
+                philBootContinue.disabled = true;
+                return;
+            }
+            if (!engineCache.has(selectedModel)) {
+                const firstLoaded = modelDefinitions.find(item => engineCache.has(item.id));
+                selectedModel = firstLoaded.id;
+                modelSelect.value = selectedModel;
+                localStorage.setItem('phil_chat_model', selectedModel);
+            }
+            engine = engineCache.get(selectedModel);
+            philBootScreen.hidden = true;
+            const setupModeChoice = localStorage.getItem('phil_setup_mode');
+            if (!setupModeChoice) {
+                startupModal.classList.add('active');
+            } else {
+                initAI(setupModeChoice === 'offline');
+            }
+        }
+
+        philBootRetry.addEventListener('click', () => preloadFlashModel());
+        philBootContinue.addEventListener('click', () => finishPhilBoot());
+        preloadFlashModel();
+
+        // Start button on startup modal now only starts online mode (no offline choice here)
+        startOnlineBtn.addEventListener('click', () => {
+            localStorage.setItem('phil_setup_mode', 'online');
+            startupModal.classList.remove('active');
+            initAI(false);
+        });
+
+        modelSelect.addEventListener('change', async (e) => {
+            const requestedModel = e.target.value;
+            const previousModel = selectedModel;
+            selectedModel = requestedModel;
+            localStorage.setItem('phil_chat_model', selectedModel);
+
+            // If already loaded, swap the active engine immediately without reinitialising WebGPU.
+            if (engineCache.has(requestedModel)) {
+                engine = engineCache.get(requestedModel);
+                engineCache.delete(requestedModel);
+                engineCache.set(requestedModel, engine);
+                headerStatus.textContent = "Ready · Instant switch";
+                statusMessage.textContent = `Switched to ${requestedModel} using its already-loaded engine.`;
+                userInput.disabled = false;
+                sendButton.disabled = false;
+                micBtn.disabled = false;
+                attachBtn.disabled = false;
+                imageGenBtn.disabled = false;
+                userInput.focus();
+                return;
+            }
+
+            userInput.disabled = true;
+            sendButton.disabled = true;
+            micBtn.disabled = true;
+            attachBtn.disabled = true;
+            headerStatus.textContent = "Loading model…";
+            statusMessage.textContent = `Loading ${requestedModel}. The first load can take a while; switching back after it is loaded will be much faster.`;
+
+            try {
+                engine = await getOrCreateEngine(requestedModel, progress => {
+                    statusMessage.textContent = progress.text;
+                    headerStatus.textContent = "Loading model…";
+                });
+                headerStatus.textContent = "Ready";
+                statusMessage.textContent = `Phil is ready with ${requestedModel}.`;
+            } catch (error) {
+                console.error('Model switch failed:', error);
+                selectedModel = previousModel;
+                modelSelect.value = previousModel;
+                localStorage.setItem('phil_chat_model', previousModel);
+                headerStatus.textContent = "Model error";
+                statusMessage.textContent = "Could not load that model. Previously loaded models have been kept in memory. Your device may not have enough GPU memory for this model.";
+            } finally {
+                userInput.disabled = !engine;
+                sendButton.disabled = !engine;
+                micBtn.disabled = !engine;
+                attachBtn.disabled = !engine;
+                imageGenBtn.disabled = !engine;
+                if (engine) userInput.focus();
+            }
+        });
+
+        async function initAI(preCache) {
+            try {
+                if (preCache) {
+                    statusMessage.textContent = "Pre-caching models for offline capability... Please wait.";
+                } else {
+                    statusMessage.textContent = "Initialized online on-demand mode.";
+                }
+
+                engine = await getOrCreateEngine(selectedModel, progress => {
+                    statusMessage.textContent = progress.text;
+                    headerStatus.textContent = "Loading Phil...";
+                });
+
+                headerStatus.textContent = "Ready";
+                headerStatus.style.background = "#dcfce7";
+                headerStatus.style.color = "#15803d";
+                
+                userInput.disabled = false;
+                sendButton.disabled = false;
+                micBtn.disabled = false;
+                attachBtn.disabled = false;
+                imageGenBtn.disabled = false;
+                
+                if (sessions.length > 0) {
+                    switchSession(sessions[0].id);
+                } else {
+                    createNewSession();
+                }
+                
+                userInput.focus();
+            } catch (error) {
+                statusMessage.textContent = "Failed to load Phil. Ensure your browser supports WebGPU.";
+                headerStatus.textContent = "Error";
+            }
+        }
+
+        attachBtn.addEventListener('click', () => fileInput.click());
+        imageGenBtn.addEventListener('click', () => {
+            userInput.value = 'Generate an image of ';
+            userInput.focus();
+        });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        window.addEventListener('dragover', (e) => e.preventDefault());
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        function handleFiles(files) {
+            for (let file of files) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    attachedDocuments.push({ name: file.name, content: event.target.result });
+                    renderAttachedFiles();
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function renderAttachedFiles() {
+            attachedFilesBar.innerHTML = '';
+            attachedDocuments.forEach((doc, index) => {
+                const pill = document.createElement('div');
+                pill.classList.add('file-pill');
+                pill.innerHTML = `<span>📄 ${doc.name}</span>`;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '✕';
+                removeBtn.addEventListener('click', () => {
+                    attachedDocuments.splice(index, 1);
+                    renderAttachedFiles();
+                });
+                
+                pill.appendChild(removeBtn);
+                attachedFilesBar.appendChild(pill);
+            });
+        }
+
+        function saveSessionsToStorage() {
+            localStorage.setItem('phil_chat_sessions', JSON.stringify(sessions));
+        }
+
+        function createNewSession() {
+            const newSession = { id: Date.now(), title: "New Conversation", history: [] };
+            sessions.unshift(newSession);
+            saveSessionsToStorage();
+            switchSession(newSession.id);
+            renderSidebar();
+        }
+
+        function deleteSession(sessionId, event) {
+            event.stopPropagation();
+            sessions = sessions.filter(s => s.id !== sessionId);
+            saveSessionsToStorage();
+
+            if (sessions.length === 0) {
+                createNewSession();
+            } else if (sessionId === currentSessionId) {
+                switchSession(sessions[0].id);
+            } else {
+                renderSidebar();
+            }
+        }
+
+        function switchSession(sessionId) {
+            currentSessionId = sessionId;
+            const session = sessions.find(s => s.id === sessionId);
+            if (!session) return;
+
+            currentChatTitle.textContent = session.title;
+            chatMessages.innerHTML = '';
+
+            if (session.history.length === 0) {
+                appendMessage("Hello! I'm Phil. You can chat with me, attach files, or use the shortcuts below.", 'bot', false);
+            } else {
+                session.history.forEach(msg => {
+                    appendMessage(msg.content, msg.role === 'user' ? 'user' : 'bot', false);
+                });
+            }
+            renderSidebar();
+        }
+
+        function renderSidebar() {
+            chatHistoryList.innerHTML = '';
+            sessions.forEach(session => {
+                const li = document.createElement('li');
+                li.classList.add('chat-history-item');
+                if (session.id === currentSessionId) li.classList.add('active');
+
+                const titleSpan = document.createElement('span');
+                titleSpan.classList.add('chat-title-text');
+                titleSpan.textContent = session.title;
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.classList.add('delete-chat-btn');
+                deleteBtn.innerHTML = '🗑️';
+                deleteBtn.addEventListener('click', (e) => deleteSession(session.id, e));
+
+                li.appendChild(titleSpan);
+                li.appendChild(deleteBtn);
+                li.addEventListener('click', () => switchSession(session.id));
+                chatHistoryList.appendChild(li);
+            });
+        }
+
+        function formatMessageContent(text, containerElement) {
+            if (String(text || '').startsWith('[[PHIL_IMAGE_DATA:')) {
+                renderStoredImage(text, containerElement);
+                return;
+            }
+            containerElement.textContent = text;
+            if (text.includes("```")) {
+                containerElement.innerHTML = "";
+                const parts = text.split("```");
+                parts.forEach((part, index) => {
+                    if (index % 2 === 1) {
+                        let lines = part.split("\n");
+                        let lang = lines[0].trim();
+                        let codeContent = lines.slice(1).join("\n");
+                        if (!codeContent) { codeContent = part; lang = "javascript"; }
+                        
+                        const pre = document.createElement('pre');
+                        const code = document.createElement('code');
+                        code.className = `language-${lang || 'javascript'}`;
+                        code.textContent = codeContent;
+                        pre.appendChild(code);
+                        containerElement.appendChild(pre);
+                    } else if (part.trim() !== "") {
+                        const span = document.createElement('span');
+                        span.textContent = part;
+                        containerElement.appendChild(span);
+                    }
+                });
+                Prism.highlightAll();
+            }
+        }
+
+        function appendMessage(text, sender, save = true) {
+            const rowDiv = document.createElement('div');
+            rowDiv.classList.add('message-row', sender === 'user' ? 'user-row' : 'bot-row');
+
+            const avatarDiv = document.createElement('div');
+            avatarDiv.classList.add('avatar', sender === 'user' ? 'user-avatar' : 'bot-avatar');
+            avatarDiv.textContent = sender === 'user' ? 'U' : 'P';
+
+            const wrapperDiv = document.createElement('div');
+            wrapperDiv.classList.add('message-bubble-wrapper');
+
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.classList.add('message-bubble');
+            formatMessageContent(text, bubbleDiv);
+            wrapperDiv.appendChild(bubbleDiv);
+
+            if (sender === 'bot' && text && !text.includes("Initializing") && !text.includes("Switching")) {
+                const copyBtn = document.createElement('button');
+                copyBtn.classList.add('copy-btn');
+                copyBtn.textContent = "📋 Copy";
+                copyBtn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(bubbleDiv.textContent);
+                    copyBtn.textContent = "✅ Copied!";
+                    setTimeout(() => copyBtn.textContent = "📋 Copy", 2000);
+                });
+                wrapperDiv.appendChild(copyBtn);
+            }
+
+            if (sender === 'user') {
+                rowDiv.appendChild(wrapperDiv);
+                rowDiv.appendChild(avatarDiv);
+            } else {
+                rowDiv.appendChild(avatarDiv);
+                rowDiv.appendChild(wrapperDiv);
+            }
+
+            chatMessages.appendChild(rowDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            if (save && currentSessionId) {
+                const session = sessions.find(s => s.id === currentSessionId);
+                if (session) {
+                    session.history.push({ role: sender === 'user' ? 'user' : 'assistant', content: text });
+                    saveSessionsToStorage();
+                }
+            }
+            return bubbleDiv;
+        }
+
+        promptChips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                userInput.value = chip.getAttribute('data-prompt');
+                userInput.focus();
+            });
+        });
+
+        // Voice Assistant Mode Logic
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            speechRecognitionInstance = new SpeechRecognition();
+            speechRecognitionInstance.continuous = false;
+            speechRecognitionInstance.interimResults = true;
+
+            speechRecognitionInstance.onstart = () => {
+                if (!isVoiceModeActive) return;
+                voiceStatus.textContent = "Listening...";
+                voiceOrb.style.background = "#ef4444";
+            };
+
+            speechRecognitionInstance.onresult = (event) => {
+                if (!isVoiceModeActive) return;
+                const transcript = event.results[0][0].transcript;
+                voiceTranscript.textContent = `"${transcript}"`;
+                if (event.results[0].isFinal) {
+                    handleVoiceQuery(transcript);
+                }
+            };
+
+            speechRecognitionInstance.onerror = () => {
+                if (!isVoiceModeActive) return;
+                voiceStatus.textContent = "Didn't catch that. Tap orb to speak.";
+                voiceOrb.style.background = "var(--primary)";
+            };
+
+            speechRecognitionInstance.onend = () => {
+                if (!isVoiceModeActive) return;
+            };
+        }
+
+        voiceModeOpenBtn.addEventListener('click', () => {
+            if (!engine) {
+                alert("Please wait for Phil to finish loading first.");
+                return;
+            }
+            isVoiceModeActive = true;
+            voiceModal.classList.add('active');
+            voiceStatus.textContent = "Phil's Voice Mode Ready";
+            voiceTranscript.textContent = "Tap the orb or speak to start...";
+            speakText("Voice mode activated. What can I help you with?", startVoiceListening);
+        });
+
+        closeVoiceMode.addEventListener('click', () => {
+            isVoiceModeActive = false;
+            window.speechSynthesis.cancel();
+            if (speechRecognitionInstance) {
+                try { speechRecognitionInstance.stop(); } catch(e) {}
+            }
+            voiceModal.classList.remove('active');
+        });
+
+        voiceOrb.addEventListener('click', () => {
+            if (!speechRecognitionInstance) {
+                alert("Speech recognition is not supported in this browser.");
+                return;
+            }
+            window.speechSynthesis.cancel();
+            try {
+                speechRecognitionInstance.start();
+            } catch(e) {}
+        });
+
+        function startVoiceListening() {
+            if (!isVoiceModeActive || !speechRecognitionInstance) return;
+            voiceOrb.style.background = "var(--primary)";
+            try {
+                speechRecognitionInstance.start();
+            } catch(e) {}
+        }
+
+        async function handleVoiceQuery(queryText) {
+            if (!isVoiceModeActive) return;
+            voiceStatus.textContent = "Phil is thinking...";
+            voiceOrb.style.background = "#0ea5e9";
+
+            const session = sessions.find(s => s.id === currentSessionId);
+            if (session && session.history.length === 0) {
+                session.title = queryText.length > 25 ? queryText.substring(0, 25) + '...' : queryText;
+                currentChatTitle.textContent = session.title;
+                saveSessionsToStorage();
+                renderSidebar();
+            }
+
+            appendMessage(queryText, 'user');
+
+            try {
+                const systemPrompt = getSystemPrompt() + " Keep answers short, conversational, and direct since this is a voice assistant interaction.";
+                const apiMessages = [
+                    { role: "system", content: systemPrompt },
+                    ...session.history.filter(m => m.role === 'user' || m.role === 'assistant')
+                ];
+
+                const response = await engine.chat.completions.create({
+                    messages: apiMessages,
+                    stream: false,
+                });
+
+                const reply = response.choices[0]?.message?.content || "I couldn't generate a response.";
+                appendMessage(reply, 'bot');
+                
+                voiceTranscript.textContent = reply;
+                speakText(reply, startVoiceListening);
+            } catch (err) {
+                voiceStatus.textContent = "Error generating response.";
+                speakText("Sorry, I encountered an error.", startVoiceListening);
+            }
+        }
+
+        function speakText(text, onComplete) {
+            if (!('speechSynthesis' in window)) {
+                if (onComplete) onComplete();
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const cleanText = text.replace(/```[\s\S]*?```/g, 'Code block omitted for voice.').replace(/[*_#]/g, '');
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.rate = 1.05;
+            
+            utterance.onstart = () => {
+                voiceStatus.textContent = "Phil is speaking...";
+                voiceOrb.style.background = "#10b981";
+            };
+
+            utterance.onend = () => {
+                if (onComplete && isVoiceModeActive) onComplete();
+            };
+
+            utterance.onerror = () => {
+                if (onComplete && isVoiceModeActive) onComplete();
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Standard microphone button for main chat input bar
+        if (SpeechRecognition) {
+            const mainRecognition = new SpeechRecognition();
+            mainRecognition.continuous = false;
+            mainRecognition.interimResults = false;
+
+            micBtn.addEventListener('click', () => {
+                if (micBtn.classList.contains('recording')) {
+                    mainRecognition.stop();
+                    return;
+                }
+                mainRecognition.start();
+            });
+
+            mainRecognition.onstart = () => micBtn.classList.add('recording');
+            mainRecognition.onresult = (event) => {
+                userInput.value = event.results[0][0].transcript;
+                userInput.focus();
+            };
+            mainRecognition.onend = () => micBtn.classList.remove('recording');
+        } else {
+            micBtn.style.display = 'none';
+        }
+
+        exportChatBtn.addEventListener('click', () => {
+            const session = sessions.find(s => s.id === currentSessionId);
+            if (!session || session.history.length === 0) {
+                alert("No conversation history to export!");
+                return;
+            }
+            let exportText = `Conversation with Phil: ${session.title}\n\n`;
+            session.history.forEach(msg => {
+                exportText += `${msg.role === 'user' ? 'User' : 'Phil'}: ${msg.content}\n\n`;
+            });
+            const blob = new Blob([exportText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${session.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_phil_chat.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        let pendingRecipient = "";
+        function openEmailModal(recipient, subject, body) {
+            pendingRecipient = recipient;
+            modalRecipient.value = recipient;
+            modalSubject.value = subject || "Inquiry";
+            modalBody.value = body || "";
+            emailModal.classList.add('active');
+            modalBody.focus();
+        }
+
+        cancelEmailBtn.addEventListener('click', () => emailModal.classList.remove('active'));
+
+        confirmSendEmailBtn.addEventListener('click', () => {
+            const mailtoLink = `mailto:${pendingRecipient}?subject=${encodeURIComponent(modalSubject.value)}&body=${encodeURIComponent(modalBody.value)}`;
+            window.location.href = mailtoLink;
+            emailModal.classList.remove('active');
+            appendMessage(`Opened your email app with Phil's drafted message for ${pendingRecipient}!`, 'bot');
+        });
+
+        async function handleSendMessage() {
+            const text = userInput.value.trim();
+            if ((!text && attachedDocuments.length === 0) || !engine) return;
+
+            const session = sessions.find(s => s.id === currentSessionId);            
+            let displayMessage = text;
+            if (attachedDocuments.length > 0) {
+                displayMessage += `\n\n[Attached Documents: ${attachedDocuments.map(d => d.name).join(', ')}]`;
+            }
+
+            if (session && session.history.length === 0) {
+                const titleSource = text || attachedDocuments[0].name;
+                session.title = titleSource.length > 25 ? titleSource.substring(0, 25) + '...' : titleSource;
+                currentChatTitle.textContent = session.title;
+                saveSessionsToStorage();
+                renderSidebar();
+            }
+
+            appendMessage(displayMessage, 'user');
+            userInput.value = '';
+
+            const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+            const useImageModel = isImageRequest(text);
+            const useCodingModel = !useImageModel && isCodingRequest(text);
+            const hasEmailIntent = text.toLowerCase().includes('email') || text.toLowerCase().includes('mail') || emailRegex.test(text);
+
+            if (hasEmailIntent && !useCodingModel && !useImageModel) {
+                const match = text.match(emailRegex);
+                if (match) {
+                    const recipient = match[0];
+                    const botRow = document.createElement('div');
+                    botRow.classList.add('message-row', 'bot-row');
+                    const avatarDiv = document.createElement('div');
+                    avatarDiv.classList.add('avatar', 'bot-avatar');
+                    avatarDiv.textContent = 'P';
+                    
+                    const wrapperDiv = document.createElement('div');
+                    wrapperDiv.classList.add('message-bubble-wrapper');
+                    const bubbleDiv = document.createElement('div');
+                    bubbleDiv.classList.add('message-bubble');
+                    bubbleDiv.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+                    wrapperDiv.appendChild(bubbleDiv);
+                    botRow.appendChild(avatarDiv);
+                    botRow.appendChild(wrapperDiv);
+                    chatMessages.appendChild(botRow);
+
+                    try {
+                        const emailPrompt = `You are Phil. Write an email draft based on this request: "${text}". Output strictly in this format: SUBJECT: [subject]\nBODY: [message]`;
+                        const response = await engine.chat.completions.create({
+                            messages: [{ role: "user", content: emailPrompt }],
+                            stream: false,
+                        });
+
+                        const rawOutput = response.choices[0]?.message?.content || "";
+                        let generatedSubject = "Inquiry";
+                        let generatedBody = text;
+
+                        if (rawOutput.includes("SUBJECT:") && rawOutput.includes("BODY:")) {
+                            const parts = rawOutput.split("BODY:");
+                            generatedSubject = parts[0].replace("SUBJECT:", "").trim();
+                            generatedBody = parts[1].trim();
+                        } else {
+                            generatedBody = rawOutput.trim();
+                        }
+
+                        bubbleDiv.textContent = `I've drafted an email for ${recipient}. Opening preview...`;
+                        openEmailModal(recipient, generatedSubject, generatedBody);
+                        session.history.push({ role: 'assistant', content: `Drafted email for ${recipient}` });
+                        saveSessionsToStorage();
+                    } catch (err) {
+                        bubbleDiv.textContent = "Failed to generate email draft, opening default template.";
+                        openEmailModal(recipient, "Inquiry", text);
+                    }
+                    return;
+                }
+            }
+
+            const botRow = document.createElement('div');
+            botRow.classList.add('message-row', 'bot-row');
+            const avatarDiv = document.createElement('div');
+            avatarDiv.classList.add('avatar', 'bot-avatar');
+            avatarDiv.textContent = 'P';
+            
+            const wrapperDiv = document.createElement('div');
+            wrapperDiv.classList.add('message-bubble-wrapper');
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.classList.add('message-bubble');
+            
+            // Set 3-dot typing indicator here
+            bubbleDiv.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+            
+            wrapperDiv.appendChild(bubbleDiv);
+            botRow.appendChild(avatarDiv);
+            botRow.appendChild(wrapperDiv);
+            chatMessages.appendChild(botRow);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                if (useImageModel) {
+                    // Release the chat model before image generation to lower GPU pressure.
+                    headerStatus.textContent = 'Switching to image generator…';
+                    statusMessage.textContent = 'Phil is unloading Flash before preparing the image model.';
+                    userInput.disabled = true;
+                    sendButton.disabled = true;
+                    micBtn.disabled = true;
+                    attachBtn.disabled = true;
+                    imageGenBtn.disabled = true;
+                    for (const [cachedId, cachedEngine] of engineCache.entries()) {
+                        try {
+                            if (cachedEngine && typeof cachedEngine.unload === 'function') await cachedEngine.unload();
+                        } catch (unloadError) {
+                            console.warn(`Could not unload ${cachedId} before image generation:`, unloadError);
+                        }
+                    }
+                    engineCache.clear();
+                    engineLoads.clear();
+                    engine = null;
+                    await generateImageRequest(text, session, bubbleDiv);
+                    attachedDocuments = [];
+                    renderAttachedFiles();
+                    return;
+                }
+
+                if (useCodingModel) {
+                    headerStatus.textContent = "Loading coding model…";
+                    statusMessage.textContent = "Phil is switching to the local coding model. Flash will be restored after the answer.";
+                    userInput.disabled = true;
+                    sendButton.disabled = true;
+                    micBtn.disabled = true;
+                    attachBtn.disabled = true;
+                    engine = await loadModelExclusive(CODING_MODEL_ID, progress => {
+                        statusMessage.textContent = progress?.text || "Loading local coding model…";
+                    });
+                    isCodingModelActive = true;
+                    headerStatus.textContent = "Coding model ready";
+                }
+
+                let systemPrompt = getSystemPrompt();
+                if (useCodingModel) {
+                    systemPrompt += " You are Phil's specialist coding model. Prioritize correct, complete, runnable code. When asked to modify an existing project, preserve its existing features and only make requested changes. Clearly identify filenames and include complete code when requested.";
+                }
+                if (attachedDocuments.length > 0) {
+                    let docContext = "\n\nRefer to the following attached documents:\n";
+                    attachedDocuments.forEach(doc => {
+                        docContext += `--- FILE: ${doc.name} ---\n${doc.content}\n`;
+                    });
+                    systemPrompt += docContext;
+                }
+
+                const apiMessages = [
+                    { role: "system", content: systemPrompt },
+                    ...session.history.filter(m => m.role === 'user' || m.role === 'assistant')
+                ];
+
+                const chunks = await engine.chat.completions.create({
+                    messages: apiMessages,
+                    stream: true,
+                });
+
+                let reply = "";
+                let firstChunk = true;
+
+                for await (const chunk of chunks) {
+                    const delta = chunk.choices[0]?.delta?.content || "";
+                    reply += delta;
+                    if (firstChunk) {
+                        bubbleDiv.textContent = "";
+                        firstChunk = false;
+                    }
+                    formatMessageContent(reply, bubbleDiv);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+
+                session.history.push({ role: 'assistant', content: reply });
+                saveSessionsToStorage();
+
+                attachedDocuments = [];
+                renderAttachedFiles();
+            } catch (error) {
+                console.error("Phil response error:", error);
+                bubbleDiv.textContent = useCodingModel
+                    ? "Sorry, the coding model could not finish this request. Phil is switching back to Flash. Check WebGPU support and available GPU memory, then try again."
+                    : "Sorry, an error occurred while generating the response.";
+            } finally {
+                if (useCodingModel || useImageModel) {
+                    statusMessage.textContent = "Switching back to Flash…";
+                    headerStatus.textContent = "Restoring Flash…";
+                    try {
+                        if (engine && typeof engine.unload === 'function') await engine.unload();
+                    } catch (error) {
+                        console.warn("Could not cleanly unload coding model:", error);
+                    }
+                    engine = null;
+                    isCodingModelActive = false;
+                    engineCache.clear();
+                    engineLoads.clear();
+                    try {
+                        engine = await getOrCreateEngine(selectedModelId, progress => {
+                            statusMessage.textContent = progress?.text || "Restoring Flash…";
+                        });
+                        selectedModel = selectedModelId;
+                        modelSelect.value = selectedModelId;
+                        localStorage.setItem('phil_chat_model', selectedModelId);
+                        headerStatus.textContent = "Ready · Flash";
+                        statusMessage.textContent = useImageModel ? "Image task finished. Flash is ready for normal chat." : "Flash is ready for normal chat.";
+                    } catch (restoreError) {
+                        console.error("Could not restore Flash:", restoreError);
+                        headerStatus.textContent = "Flash failed to reload";
+                        statusMessage.textContent = "The coding response ended, but Flash could not reload. Refresh the page and try again.";
+                    }
+                    userInput.disabled = false;
+                    sendButton.disabled = false;
+                    micBtn.disabled = false;
+                    attachBtn.disabled = false;
+                    imageGenBtn.disabled = false;
+                    userInput.focus();
+                }
+            }
+        }
+
+        newChatBtn.addEventListener('click', createNewSession);
+        sendButton.addEventListener('click', handleSendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSendMessage();
+        });
+    </script>
+</body>
+</html>
